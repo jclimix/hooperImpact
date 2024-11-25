@@ -3,7 +3,7 @@ import logging
 
 logging.basicConfig(
     level=logging.INFO,
-    format='%(asctime)s - %(levelname)s - %(message)s',
+    format='%(asctime)s - %(funcName)s - %(message)s',
     handlers=[logging.StreamHandler()]
 )
 
@@ -20,34 +20,52 @@ class DataManager:
             logging.error(f"Error loading file {file_path}: {e}")
             return pd.DataFrame()
 
-# class for handling team-level data
 class TeamData:
-    def __init__(self, season, abbreviation):
+    def __init__(self, season, abbreviations):
         self.season = season
-        self.abbreviation = abbreviation
+        self.abbreviations = abbreviations  # List of team abbreviations
         self.team_info = self._load_team_info()
 
     def _load_team_info(self):
-        file_path = f"nba_data/nba_team_data/{self.season}_{self.abbreviation}_teamdata/{self.season}_{self.abbreviation}_info.csv"
-        return DataManager.load_csv(file_path)
+        all_team_info = []
+        for abbreviation in self.abbreviations:
+            file_path = f"nba_data/nba_team_data/{self.season}_{abbreviation}_teamdata/{self.season}_{abbreviation}_info.csv"
+            try:
+                team_data = DataManager.load_csv(file_path)
+                all_team_info.append(team_data)
+            except FileNotFoundError:
+                logging.error(f"File not found for team {abbreviation} in season {self.season}.")
+        return pd.concat(all_team_info, ignore_index=True) if all_team_info else pd.DataFrame()
 
-    def get_team_name(self):
-        try:
-            return self.team_info.loc[
-                self.team_info['TeamAbbreviation'] == self.abbreviation, 'TeamName'
-            ].iloc[0]
-        except IndexError:
-            logging.error(f"Team abbreviation {self.abbreviation} not found in team info data.")
-            return None
+    def get_team_names(self):
+        team_names = []
+        for abbreviation in self.abbreviations:
+            try:
+                team_name = self.team_info.loc[
+                    self.team_info['TeamAbbreviation'] == abbreviation, 'TeamName'
+                ].iloc[0]
+                team_names.append(team_name)
+            except IndexError:
+                logging.error(f"Team abbreviation {abbreviation} not found in team info data.")
+                team_names.append(None)
+        return team_names
 
-    def get_record(self):
-        try:
-            wins = self.team_info.loc[self.team_info["TeamAbbreviation"] == self.abbreviation, "Wins"].values[0]
-            losses = self.team_info.loc[self.team_info["TeamAbbreviation"] == self.abbreviation, "Losses"].values[0]
-            return wins, losses
-        except IndexError:
-            logging.error(f"Team record not found for {self.abbreviation} in {self.season}.")
-            return 0, 0
+    def get_records(self):
+        records = []
+        logging.info(f"Getting records for all team abbreviations: {self.abbreviations}")
+        for abbreviation in self.abbreviations:
+            try:
+                wins = self.team_info.loc[
+                    self.team_info["TeamAbbreviation"] == abbreviation, "Wins"
+                ].values[0]
+                losses = self.team_info.loc[
+                    self.team_info["TeamAbbreviation"] == abbreviation, "Losses"
+                ].values[0]
+                records.append((wins, losses))
+            except IndexError:
+                logging.error(f"Team record not found for {abbreviation} in {self.season}.")
+                records.append((0, 0))
+        return records
 
 # class for handling player-level data
 class PlayerData:
@@ -115,9 +133,21 @@ class MetricsCalculator:
 
     # calculate Team Postseason Score (TPS): measures team's performance in postseason tournament
     @staticmethod
-    def calculate_tps(season, team_abbreviation):
-        team_data = TeamData(season, team_abbreviation)
-        team_name = team_data.get_team_name()
+    def calculate_tps(season, team_abbreviations):
+
+        if isinstance(team_abbreviations, str):
+            team_abbreviations = [team_abbreviations]
+            
+        if not team_abbreviations:
+            logging.error("The given teams list is empty.")
+            return 0
+
+        last_team_abbreviation = team_abbreviations[-1]
+        logging.info(f"Calculating TPS for {last_team_abbreviation} in {season}.")
+
+        team_data = TeamData(season, [last_team_abbreviation])  # Pass as a list
+        team_name = team_data.get_team_names()[-1]  # Get the name of the last team in the list
+
         postseason_data = DataManager.load_csv(f"nba_data/nba_playoffs_data/{season}_playoff_data.csv")
 
         if team_name in postseason_data["Team"].values:
@@ -133,7 +163,7 @@ class MetricsCalculator:
             all_rounds_losses = [R1_Losses, R2_Losses, R3_Losses, R4_Losses]
             tps = 0
 
-            # calculate TPS based on season due to different postseason formats across eras
+            # Calculate TPS based on season due to different postseason formats across eras
             if int(season) in range(1975, 1983):
                 tps = 2.2 + (R1_Wins + R2_Wins * 1.2 + R3_Wins * 1.4 + R4_Wins * 1.6) - sum(all_rounds_losses)
             elif int(season) in range(1984, 2002):
@@ -146,11 +176,13 @@ class MetricsCalculator:
             return round(tps, 1)
 
         logging.error(f"Team {team_name} not found in postseason data.")
+        # teams not found means they did not qualify for the postseason and receive a TPS of zero
         return 0
 
     # calculate Team Postseason Percentage (TPP): expresses team's postseason performance as a percentage (TPS / maximum TPS possible)
     @staticmethod
     def calculate_tpp(season, tps):
+        logging.info(f"Calculating TPP for the given team in {season}.")
 
         # TPP calculations vary by era due to different postseason formats
         if tps:
@@ -160,12 +192,18 @@ class MetricsCalculator:
                 return round(tps / 24, 3)
             elif int(season) >= 2003:
                 return round(tps / 25, 3)
-        logging.error(f"TPS value is missing or season ({season}) is out of range.")
-        return None
+        elif tps == 0:
+            logging.info(f"TPS value is 0. So TPP is 0.")
+            return 0
+        
+        else:
+            logging.error(f"TPS value is missing or season ({season}) is out of range.")
+            return 0
 
     # calculate regular season Player Contribution Percentage (rsPCP): measure of individual player's statistical contribution to their team(s) in regular season
     @staticmethod
     def calculate_rs_pcp(season, player_name):
+        logging.info(f"Calculating rsPCP for {player_name} in {season}.")
         player_data = PlayerData(season, player_name)
         player_teams = player_data.get_teams()
         player_per_list = []
@@ -192,9 +230,6 @@ class MetricsCalculator:
     # calculate postseason Player Contribution Percentage (psPCP): measure of individual player's statistical contribution to their team(s) in postseason tournament
     @staticmethod
     def calculate_ps_pcp(season, player_name):
-        """
-        Calculate postseason Player Contribution Percentage (psPCP) for a given player and season.
-        """
         logging.info(f"Calculating psPCP for {player_name} in {season}.")
         player_data = PlayerData(season, player_name)
         player_teams = player_data.get_teams()
@@ -275,8 +310,12 @@ class MetricsCalculator:
 
         # calculate win percentages for each team
         for team in player_teams:
-            team_data = TeamData(season, team)
-            wins, losses = team_data.get_record()
+            team_data = TeamData(season, [team])
+            records = team_data.get_records()
+            if records:
+                wins, losses = records[0]
+            else:
+                wins, losses = 0, 0
 
             if wins + losses == 0:
                 logging.error(f"Invalid win/loss record for team {team}. Skipping.")
@@ -319,6 +358,10 @@ class MetricsCalculator:
         if not player_teams:
             logging.warning(f"No teams found for {player_name} in {season}. Returning 0 for psPIM.")
             return 0
+        
+        if len(pcp_list) == 0:
+            logging.warning(f"The length of the passed PCP list is 0. Returning 0 for psPIM.")
+            return 0
 
         if not pcp_list or len(pcp_list) != len(player_teams):
             logging.error(
@@ -343,23 +386,45 @@ class MetricsCalculator:
         # Calculate PIM using the player's PCP for the last team
         pim = pcp_list[-1] * tpp * 1000
         return round(pim, 1)
+    
+    def calculate_adjusted_rs_pcp(season, player_name, pcp_list):
+        player_data = PlayerData(season, player_name)
+        player_teams = player_data.get_teams()
+        player_games_played_list = player_data.get_games_played()
+        numerator = 0
+        i = 0
+        
+        for team in enumerate(player_teams):
+            numerator_component = pcp_list[i] * player_games_played_list[i]
+            numerator += numerator_component
+            i += 1
+
+        denominator = sum(player_games_played_list)
+
+        if denominator == 0:
+            logging.error("No games played across all teams. Cannot calculate adjusted rsPCP.")
+            return 0
+
+        rs_pcp_adjusted = numerator / denominator
+        return round(rs_pcp_adjusted, 3)
 
 # main-to-be
-season = "2015"
-player_name = "Stephen Curry"
-team_abbreviation = "GSW"
-
-team_data = TeamData(season, team_abbreviation)
-team_name = team_data.get_team_name()
-logging.info(f"Team name: {team_name}")
+season = "2012"
+player_name = "Kobe Bryant"
 
 player_data = PlayerData(season, player_name)
 player_teams = player_data.get_teams()
 logging.info(f"Player teams: {player_teams}")
 
+team_data = TeamData(season, player_teams)
+team_name = team_data.get_team_names()
+logging.info(f"Team name: {team_name}")
+
+# metrics
 rs_pcp = MetricsCalculator.calculate_rs_pcp(season, player_name)
+rs_pcp_adjusted = MetricsCalculator.calculate_adjusted_rs_pcp(season, player_name, rs_pcp)
 ps_pcp = MetricsCalculator.calculate_ps_pcp(season, player_name)
-tps = MetricsCalculator.calculate_tps(season, team_abbreviation)
+tps = MetricsCalculator.calculate_tps(season, player_teams)
 tpp = MetricsCalculator.calculate_tpp(season, tps)
 rs_pim = MetricsCalculator.calculate_rs_pim(season, player_name, rs_pcp)
 ps_pim = MetricsCalculator.calculate_ps_pim(season, player_name, ps_pcp)
@@ -367,6 +432,7 @@ ps_pim = MetricsCalculator.calculate_ps_pim(season, player_name, ps_pcp)
 # NOTE: Make sure to pass the right variables to each method!
 
 logging.info(f"rsPCP: {rs_pcp}")
+logging.info(f"rsPCP (adjusted): {rs_pcp_adjusted}")
 logging.info(f"psPCP: {ps_pcp}")
 logging.info(f"TPS: {tps}")
 logging.info(f"TPP: {tpp}")
