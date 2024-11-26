@@ -3,9 +3,9 @@ import logging
 
 if __name__ == "__main__":
 
-    mode = 'test'
+    mode = 'export'
 
-    if mode == 'exp':
+    if mode == 'export':
 
         years = range(1977, 2025)
         for year in years:
