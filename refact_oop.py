@@ -20,6 +20,108 @@ class DataManager:
             logging.error(f"Error loading file {file_path}: {e}")
             return pd.DataFrame()
 
+    @staticmethod
+    def export_player_metrics(season):
+        file_path = f"nba_data/nba_player_info/{season}_all_player_info.csv"
+        player_data = DataManager.load_csv(file_path)
+
+        if player_data.empty or 'Player' not in player_data.columns:
+            logging.error(f"No valid player data found in {file_path}.")
+            return
+
+        export_data = []
+
+        # track processed players to avoid duplicates
+        processed_players = set()
+
+        for _, row in player_data.iterrows():
+            player_name = row['Player']
+            if player_name in processed_players:
+                continue  # skip all duplicate players
+
+            processed_players.add(player_name)
+            logging.info(f"Processing metrics for player: {player_name}")
+
+            try:
+                player_obj = PlayerData(season, player_name)
+
+                player_teams = player_obj.get_teams()
+
+                age, position = None, None
+                games_played, minutes_played = 0, 0
+                reg_per, post_per = None, None
+
+                for team in player_teams:
+                    reg_file_path = f"nba_data/nba_team_data/{season}_{team}_teamdata/{season}_{team}_advanced_reg.csv"
+                    post_file_path = f"nba_data/nba_team_data/{season}_{team}_teamdata/{season}_{team}_advanced_post.csv"
+
+                    reg_data = DataManager.load_csv(reg_file_path)
+                    post_data = DataManager.load_csv(post_file_path)
+
+                    if not reg_data.empty:
+                        try:
+                            # get player data from regular season
+                            reg_row = reg_data.loc[reg_data['Player'] == player_name].iloc[0]
+                            age = reg_row.get('Age', age)
+                            position = reg_row.get('Pos', position)
+                            games_played += reg_row.get('G', 0)
+                            minutes_played += reg_row.get('MP', 0)
+                            reg_per = reg_row.get('PER', reg_per)
+                        except IndexError:
+                            logging.warning(f"{player_name} not found in {team} regular season stats.")
+
+                    if not post_data.empty:
+                        try:
+                            # get player data from postseason 
+                            post_row = post_data.loc[post_data['Player'] == player_name].iloc[0]
+                            post_per = post_row.get('PER', post_per)
+                        except IndexError:
+                            logging.warning(f"{player_name} not found in {team} postseason stats.")
+
+                # custom metrics
+                rs_pcp = MetricsCalculator.calculate_rs_pcp(season, player_name)
+                rs_pcp_adjusted = MetricsCalculator.calculate_adjusted_rs_pcp(season, player_name, rs_pcp)
+                ps_pcp = MetricsCalculator.calculate_ps_pcp(season, player_name)
+                tps = MetricsCalculator.calculate_tps(season, player_teams)
+                rs_pim = MetricsCalculator.calculate_rs_pim(season, player_name, rs_pcp)
+                ps_pim = MetricsCalculator.calculate_ps_pim(season, player_name, ps_pcp)
+
+                # convert lists to strings or floats
+                rs_pcp_str = ', '.join(map(str, rs_pcp))
+                ps_pcp_str = ', '.join(map(str, ps_pcp))
+
+                export_data.append({
+                    "Player": player_name,
+                    "Age": age,
+                    "Position": position,
+                    "Teams": ', '.join(player_teams),
+                    "Games Played": games_played,
+                    "Minutes Played": minutes_played,
+                    "Regular Season PER": reg_per,
+                    "Postseason PER": post_per,
+                    "rsPCP": rs_pcp_str,
+                    "rsPCP_Adjusted": rs_pcp_adjusted,
+                    "psPCP": ps_pcp_str,
+                    "TPS": tps,
+                    "rsPIM": rs_pim,
+                    "psPIM": ps_pim
+                })
+
+            except Exception as e:
+                logging.error(f"Error processing metrics for player {player_name}: {e}")
+                continue
+
+        export_df = pd.DataFrame(export_data)
+
+        print(export_df)
+
+        export_path = f"player_exports/{season}_player_exports.csv"
+        try:
+            export_df.to_csv(export_path, index=False)
+            logging.info(f"Exported player metrics to {export_path}.")
+        except Exception as e:
+            logging.error(f"Error exporting player metrics to {export_path}: {e}")
+
 class TeamData:
     def __init__(self, season, abbreviations):
         self.season = season
@@ -313,6 +415,18 @@ class MetricsCalculator:
             win_pct = wins / (wins + losses)
             team_win_pct_list.append(round(win_pct, 3))
 
+        total_min_played = 0
+
+        for team in player_teams:
+            team_data = DataManager.load_csv(f"nba_data/nba_team_data/{season}_{team}_teamdata/{season}_{team}_advanced_reg.csv")
+            min_played = team_data.loc[team_data["Player"] == player_name, "MP"]
+            total_min_played += float(min_played.iloc[0])
+            
+        if float(total_min_played) < 100:
+            logging.warning(f"Player has played less than 100 minutes ({total_min_played} minutes).")
+            logging.warning(f"Returning an rsPIM of 0.")
+            return 0
+
         numerator = 0
         pim_list = []
 
@@ -356,6 +470,15 @@ class MetricsCalculator:
                 f"Mismatch between PCP list length ({len(pcp_list)}) and teams ({len(player_teams)})."
             )
             return 0
+        
+        player_postseason_team = player_teams[-1]
+        postseason_data = DataManager.load_csv(f"nba_data/nba_team_data/{season}_{player_postseason_team}_teamdata/{season}_{player_postseason_team}_advanced_post.csv")
+        player_min_played = postseason_data.loc[postseason_data["Player"] == player_name, "MP"]
+        
+        if float(player_min_played) < 100:
+            logging.warning(f"Player has played less than 100 minutes ({player_min_played} minutes).")
+            logging.warning(f"Returning a psPIM of 0.")
+            return 0
 
         # Identify the player's last postseason team
         postseason_team = player_teams[-1]
@@ -392,8 +515,12 @@ class MetricsCalculator:
         return round(rs_pcp_adjusted, 3)
 
 # main-to-be
-season = "2018"
-player_name = "Sean Kilpatrick"
+season = "2012"
+DataManager.export_player_metrics(season)
+
+'''
+season = "2012"
+player_name = "LeBron James"
 
 player_data = PlayerData(season, player_name)
 player_teams = player_data.get_teams()
@@ -419,3 +546,4 @@ logging.info(f"psPCP: {ps_pcp}")
 logging.info(f"TPS: {tps}")
 logging.info(f"rsPIM: {rs_pim}")
 logging.info(f"psPIM: {ps_pim}")
+'''
