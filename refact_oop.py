@@ -133,20 +133,19 @@ class MetricsCalculator:
 
     # calculate Team Postseason Score (TPS): measures team's performance in postseason tournament
     @staticmethod
-    def calculate_tps(season, team_abbreviations):
-
-        if isinstance(team_abbreviations, str):
-            team_abbreviations = [team_abbreviations]
+    def calculate_tps(season, teams_list):
+        if isinstance(teams_list, str):
+            teams_list = [teams_list]
             
-        if not team_abbreviations:
+        if not teams_list:
             logging.error("The given teams list is empty.")
             return 0
 
-        last_team_abbreviation = team_abbreviations[-1]
+        last_team_abbreviation = teams_list[-1]
         logging.info(f"Calculating TPS for {last_team_abbreviation} in {season}.")
 
-        team_data = TeamData(season, [last_team_abbreviation])  # Pass as a list
-        team_name = team_data.get_team_names()[-1]  # Get the name of the last team in the list
+        team_data = TeamData(season, [last_team_abbreviation])
+        team_name = team_data.get_team_names()[-1] 
 
         postseason_data = DataManager.load_csv(f"nba_data/nba_playoffs_data/{season}_playoff_data.csv")
 
@@ -160,45 +159,34 @@ class MetricsCalculator:
             R4_Wins = postseason_data.loc[postseason_data["Team"] == team_name, "R4_Wins"].values[0]
             R4_Losses = postseason_data.loc[postseason_data["Team"] == team_name, "R4_Losses"].values[0]
 
-            all_rounds_losses = [R1_Losses, R2_Losses, R3_Losses, R4_Losses]
-            tps = 0
+            # Check for first-round bye
+            if R1_Wins == 0 and R1_Losses == 0:
+                logging.info(f"{team_name} had a first-round bye in {season}.")
 
-            # Calculate TPS based on season due to different postseason formats across eras
-            if int(season) in range(1975, 1983):
-                tps = 2.2 + (R1_Wins + R2_Wins * 1.2 + R3_Wins * 1.4 + R4_Wins * 1.6) - sum(all_rounds_losses)
-            elif int(season) in range(1984, 2002):
-                tps = 3.2 + (R1_Wins + R2_Wins * 1.2 + R3_Wins * 1.4 + R4_Wins * 1.6) - sum(all_rounds_losses)
-            elif int(season) >= 2003:
-                tps = 4.2 + (R1_Wins + R2_Wins * 1.2 + R3_Wins * 1.4 + R4_Wins * 1.6) - sum(all_rounds_losses)
+                # Adjust for bye: start from the second round
+                total_games_played = (R2_Wins + R2_Losses) + (R3_Wins + R3_Losses) + (R4_Wins + R4_Losses)
+                weighted_wins = (R2_Wins * 1.2) + (R3_Wins * 1.4) + (R4_Wins * 1.6)
             else:
-                logging.error(f"Season ({season}) out of range.")
+                # Standard case with no bye
+                total_games_played = (R1_Wins + R1_Losses) + (R2_Wins + R2_Losses) + (R3_Wins + R3_Losses) + (R4_Wins + R4_Losses)
+                weighted_wins = (R1_Wins * 1.0) + (R2_Wins * 1.2) + (R3_Wins * 1.4) + (R4_Wins * 1.6)
 
-            return round(tps, 1)
+            # Determine advancement bonus
+            if R4_Wins > R4_Losses:
+                advancement_bonus = 3.0  # NBA Champion
+            elif R3_Wins > R3_Losses:
+                advancement_bonus = 2.0  # Reached NBA Finals
+            elif R2_Wins > R2_Losses:
+                advancement_bonus = 1.0  # Reached Conference Finals
+            else:
+                advancement_bonus = 0.0  # Eliminated in first round
+
+            tps = (weighted_wins + advancement_bonus) / (total_games_played + 4)  # Add 4 for normalization
+            return round(tps, 3)
 
         logging.error(f"Team {team_name} not found in postseason data.")
-        # teams not found means they did not qualify for the postseason and receive a TPS of zero
+        # Teams not found means they did not qualify for the postseason and receive a TPS of zero
         return 0
-
-    # calculate Team Postseason Percentage (TPP): expresses team's postseason performance as a percentage (TPS / maximum TPS possible)
-    @staticmethod
-    def calculate_tpp(season, tps):
-        logging.info(f"Calculating TPP for the given team in {season}.")
-
-        # TPP calculations vary by era due to different postseason formats
-        if tps:
-            if int(season) in range(1975, 1983):
-                return round(tps / 23, 3)
-            elif int(season) in range(1984, 2002):
-                return round(tps / 24, 3)
-            elif int(season) >= 2003:
-                return round(tps / 25, 3)
-        elif tps == 0:
-            logging.info(f"TPS value is 0. So TPP is 0.")
-            return 0
-        
-        else:
-            logging.error(f"TPS value is missing or season ({season}) is out of range.")
-            return 0
 
     # calculate regular season Player Contribution Percentage (rsPCP): measure of individual player's statistical contribution to their team(s) in regular season
     @staticmethod
@@ -360,7 +348,7 @@ class MetricsCalculator:
             return 0
         
         if len(pcp_list) == 0:
-            logging.warning(f"The length of the passed PCP list is 0. Returning 0 for psPIM.")
+            logging.warning(f"The length of the passed PCP list is 0, meaning the player given did not play in the {season} postseason.\nReturning 0 for psPIM.")
             return 0
 
         if not pcp_list or len(pcp_list) != len(player_teams):
@@ -378,13 +366,8 @@ class MetricsCalculator:
             logging.warning(f"TPS for {postseason_team} in {season} is 0. Returning 0 for psPIM.")
             return 0
 
-        tpp = MetricsCalculator.calculate_tpp(season, tps)
-        if tpp is None:
-            logging.warning(f"TPP for {postseason_team} in {season} is invalid. Returning 0 for psPIM.")
-            return 0
-
         # Calculate PIM using the player's PCP for the last team
-        pim = pcp_list[-1] * tpp * 1000
+        pim = pcp_list[-1] * tps * 1000
         return round(pim, 1)
     
     def calculate_adjusted_rs_pcp(season, player_name, pcp_list):
@@ -409,8 +392,8 @@ class MetricsCalculator:
         return round(rs_pcp_adjusted, 3)
 
 # main-to-be
-season = "2012"
-player_name = "Kobe Bryant"
+season = "2018"
+player_name = "Sean Kilpatrick"
 
 player_data = PlayerData(season, player_name)
 player_teams = player_data.get_teams()
@@ -425,7 +408,6 @@ rs_pcp = MetricsCalculator.calculate_rs_pcp(season, player_name)
 rs_pcp_adjusted = MetricsCalculator.calculate_adjusted_rs_pcp(season, player_name, rs_pcp)
 ps_pcp = MetricsCalculator.calculate_ps_pcp(season, player_name)
 tps = MetricsCalculator.calculate_tps(season, player_teams)
-tpp = MetricsCalculator.calculate_tpp(season, tps)
 rs_pim = MetricsCalculator.calculate_rs_pim(season, player_name, rs_pcp)
 ps_pim = MetricsCalculator.calculate_ps_pim(season, player_name, ps_pcp)
 
@@ -435,6 +417,5 @@ logging.info(f"rsPCP: {rs_pcp}")
 logging.info(f"rsPCP (adjusted): {rs_pcp_adjusted}")
 logging.info(f"psPCP: {ps_pcp}")
 logging.info(f"TPS: {tps}")
-logging.info(f"TPP: {tpp}")
 logging.info(f"rsPIM: {rs_pim}")
 logging.info(f"psPIM: {ps_pim}")
