@@ -1,4 +1,5 @@
 import pandas as pd
+import numpy as np
 import logging
 
 logging.basicConfig(
@@ -6,7 +7,6 @@ logging.basicConfig(
     format='%(asctime)s - %(funcName)s - %(message)s',
     handlers=[logging.StreamHandler()]
 )
-
 
 class DataManager:
     @staticmethod
@@ -125,7 +125,7 @@ class DataManager:
 class TeamData:
     def __init__(self, season, abbreviations):
         self.season = season
-        self.abbreviations = abbreviations  # List of team abbreviations
+        self.abbreviations = abbreviations  # *should* be a list of teams using abbreviation as identifiers
         self.team_info = self._load_team_info()
 
     def _load_team_info(self):
@@ -200,7 +200,7 @@ class PlayerData:
             logging.error(f"Team data not found for {self.player_name} in {self.season}.")
             return []
         
-    # return list of games played by a player for each team    
+    # return list of games played by a player for EACH team    
     def get_games_played(self):
         logging.info(f"Getting games played for {self.player_name} in {self.season}.")
         player_games_list = []
@@ -261,19 +261,19 @@ class MetricsCalculator:
             R4_Wins = postseason_data.loc[postseason_data["Team"] == team_name, "R4_Wins"].values[0]
             R4_Losses = postseason_data.loc[postseason_data["Team"] == team_name, "R4_Losses"].values[0]
 
-            # Check for first-round bye
+            # check for first-round bye
             if R1_Wins == 0 and R1_Losses == 0:
                 logging.info(f"{team_name} had a first-round bye in {season}.")
 
-                # Adjust for bye: start from the second round
+                # adjust for bye: start from the second round
                 total_games_played = (R2_Wins + R2_Losses) + (R3_Wins + R3_Losses) + (R4_Wins + R4_Losses)
                 weighted_wins = (R2_Wins * 1.2) + (R3_Wins * 1.4) + (R4_Wins * 1.6)
             else:
-                # Standard case with no bye
+                # typical case with no first-round bye
                 total_games_played = (R1_Wins + R1_Losses) + (R2_Wins + R2_Losses) + (R3_Wins + R3_Losses) + (R4_Wins + R4_Losses)
                 weighted_wins = (R1_Wins * 1.0) + (R2_Wins * 1.2) + (R3_Wins * 1.4) + (R4_Wins * 1.6)
 
-            # Determine advancement bonus
+            # determine advancement bonus
             if R4_Wins > R4_Losses:
                 advancement_bonus = 3.0  # NBA Champion
             elif R3_Wins > R3_Losses:
@@ -281,13 +281,13 @@ class MetricsCalculator:
             elif R2_Wins > R2_Losses:
                 advancement_bonus = 1.0  # Reached Conference Finals
             else:
-                advancement_bonus = 0.0  # Eliminated in first round
+                advancement_bonus = 0.0  # Eliminated in First Round
 
-            tps = (weighted_wins + advancement_bonus) / (total_games_played + 4)  # Add 4 for normalization
+            tps = (weighted_wins + advancement_bonus) / (total_games_played + 4)  # add 4 for normalization
             return round(tps, 3)
 
         logging.error(f"Team {team_name} not found in postseason data.")
-        # Teams not found means they did not qualify for the postseason and receive a TPS of zero
+        # teams not found means they did not qualify for the postseason and receive a TPS of zero
         return 0
 
     # calculate regular season Player Contribution Percentage (rsPCP): measure of individual player's statistical contribution to their team(s) in regular season
@@ -325,11 +325,11 @@ class MetricsCalculator:
         player_teams = player_data.get_teams()
 
         if not player_teams:
-            logging.warning(f"No teams found for {player_name} in {season}. Returning empty psPCP list.")
-            return []
+            logging.warning(f"No teams found for {player_name} in {season}. Returning psPCP list with 0.")
+            return [0]
 
-        player_per_list = [] 
-        team_per_sum_list = [] 
+        player_per_list = []
+        team_per_sum_list = []
 
         for team in player_teams:
             file_path = f"nba_data/nba_team_data/{season}_{team}_teamdata/{season}_{team}_advanced_post.csv"
@@ -340,31 +340,36 @@ class MetricsCalculator:
                 continue
 
             try:
+                # get player's PER
                 player_per = team_adv_stats_df.loc[
                     team_adv_stats_df["Player"] == player_name, "PER"
                 ]
+                if not player_per.empty:
+                    player_per_list.append(player_per.values[0])
+                else:
+                    logging.warning(f"{player_name} not found in {team}'s postseason stats for {season}.")
+                    player_per_list.append(0)
 
-                # Calculate sum of team PER for players with over 100 minutes played to exclude outliers/smaller sample of player performances
+                # get team's total PER for players with over 100 minutes played
                 team_per_sum = team_adv_stats_df.loc[
                     team_adv_stats_df["MP"] > 100, "PER"
                 ].sum()
-
-                if not player_per.empty:
-                    player_per_list.append(player_per.values[0])
-                    team_per_sum_list.append(round(team_per_sum, 1))
-                else:
-                    logging.error(f"{player_name} not found in {team}'s postseason stats for {season}.")
+                team_per_sum_list.append(round(team_per_sum, 1))
             except KeyError:
                 logging.error(f"'PER' column not found in {team} postseason stats file for {season}.")
             except IndexError:
                 logging.error(f"{player_name} not found in {team}'s stats. Skipping team {team}.")
 
         if not player_per_list:
-            logging.error(f"No postseason PER data found for {player_name}. Returning empty psPCP list.")
-            return []
+            logging.error(f"No postseason PER data found for {player_name}. Returning psPCP list with 0.")
+            return [0]
+
+        if not team_per_sum_list:
+            logging.error(f"No team PER data found for teams in {player_name}'s postseason. Returning psPCP list with 0.")
+            return [0]
 
         player_pcp_list = [
-            round(player_per / team_sum, 3)
+            round(player_per / team_sum, 3) if team_sum > 0 else 0
             for player_per, team_sum in zip(player_per_list, team_per_sum_list)
         ]
 
@@ -375,6 +380,11 @@ class MetricsCalculator:
                     f"{player_name}'s PCP for {team}: {round(player_pcp_list[i] * 100, 1)}%"
                 )
 
+        # if PCP is NaN then return list with 0
+
+        for pcp in player_pcp_list:
+            if np.isnan(pcp):
+                return [0]
         return player_pcp_list
     
     # calculate regular-season Player Impact Metric (rsPIM): player's overall impact on their team in the regular season
@@ -422,8 +432,8 @@ class MetricsCalculator:
             min_played = team_data.loc[team_data["Player"] == player_name, "MP"]
             total_min_played += float(min_played.iloc[0])
             
-        if float(total_min_played) < 100:
-            logging.warning(f"Player has played less than 100 minutes ({total_min_played} minutes).")
+        if float(total_min_played) < 200:
+            logging.warning(f"Player has played less than 200 regular season minutes ({total_min_played} minutes).")
             logging.warning(f"Returning an rsPIM of 0.")
             return 0
 
@@ -475,12 +485,12 @@ class MetricsCalculator:
         postseason_data = DataManager.load_csv(f"nba_data/nba_team_data/{season}_{player_postseason_team}_teamdata/{season}_{player_postseason_team}_advanced_post.csv")
         player_min_played = postseason_data.loc[postseason_data["Player"] == player_name, "MP"]
         
-        if float(player_min_played) < 100:
-            logging.warning(f"Player has played less than 100 minutes ({player_min_played} minutes).")
+        if float(player_min_played.iloc[0]) < 100:
+            logging.warning(f"Player has played less than 100 postseason minutes ({player_min_played} minutes).")
             logging.warning(f"Returning a psPIM of 0.")
             return 0
 
-        # Identify the player's last postseason team
+        # identify the player's last team in list since that will be the team they're on during the postseason
         postseason_team = player_teams[-1]
         logging.info(f"Postseason team for {player_name}: {postseason_team}")
 
@@ -489,7 +499,7 @@ class MetricsCalculator:
             logging.warning(f"TPS for {postseason_team} in {season} is 0. Returning 0 for psPIM.")
             return 0
 
-        # Calculate PIM using the player's PCP for the last team
+        # calculate PIM using the player's PCP for the last team
         pim = pcp_list[-1] * tps * 1000
         return round(pim, 1)
     
@@ -513,37 +523,3 @@ class MetricsCalculator:
 
         rs_pcp_adjusted = numerator / denominator
         return round(rs_pcp_adjusted, 3)
-
-# main-to-be
-season = "2012"
-DataManager.export_player_metrics(season)
-
-'''
-season = "2012"
-player_name = "LeBron James"
-
-player_data = PlayerData(season, player_name)
-player_teams = player_data.get_teams()
-logging.info(f"Player teams: {player_teams}")
-
-team_data = TeamData(season, player_teams)
-team_name = team_data.get_team_names()
-logging.info(f"Team name: {team_name}")
-
-# metrics
-rs_pcp = MetricsCalculator.calculate_rs_pcp(season, player_name)
-rs_pcp_adjusted = MetricsCalculator.calculate_adjusted_rs_pcp(season, player_name, rs_pcp)
-ps_pcp = MetricsCalculator.calculate_ps_pcp(season, player_name)
-tps = MetricsCalculator.calculate_tps(season, player_teams)
-rs_pim = MetricsCalculator.calculate_rs_pim(season, player_name, rs_pcp)
-ps_pim = MetricsCalculator.calculate_ps_pim(season, player_name, ps_pcp)
-
-# NOTE: Make sure to pass the right variables to each method!
-
-logging.info(f"rsPCP: {rs_pcp}")
-logging.info(f"rsPCP (adjusted): {rs_pcp_adjusted}")
-logging.info(f"psPCP: {ps_pcp}")
-logging.info(f"TPS: {tps}")
-logging.info(f"rsPIM: {rs_pim}")
-logging.info(f"psPIM: {ps_pim}")
-'''
