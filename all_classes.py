@@ -385,7 +385,7 @@ class MetricsCalculator:
         for pcp in player_pcp_list:
             if np.isnan(pcp):
                 return [0]
-        return player_pcp_list
+        return [player_pcp_list[-1]]
     
     # calculate regular-season Player Impact Metric (rsPIM): player's overall impact on their team in the regular season
     @staticmethod

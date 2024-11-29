@@ -1,0 +1,6 @@
+Player,Age,Position,Teams,Games Played,Minutes Played,Regular Season PER,Postseason PER,rsPCP,rsPCP_Adjusted,psPCP,TPS,rsPIM,psPIM
+Kelly Olynyk,32,C,"UTA, TOR",78,1759,17.4,,"0.068, 0.055",0.063,0,0,22.5,0
+Simone Fontecchio,28,SF,"UTA, DET",66,1644,14.4,,"0.044, 0.052",0.046,0,0,14.8,0
+Marvin Bagley III,24,C,"DET, WAS",50,1053,20.5,,"0.065, 0.073",0.069,0,0,12.2,0
+Ochai Agbaji,23,SG,"UTA, TOR",78,1641,7.1,,"0.032, 0.023",0.029,0,0,10.3,0
+Jamaree Bouyea,24,PG,"POR, SAS",9,95,11.1,,"-0.021, 0.052",0.003,0,0,0.0,0

@@ -3,11 +3,11 @@ import logging
 
 if __name__ == "__main__":
 
-    mode = 'export'
+    mode = 'test'
 
     if mode == 'export':
 
-        years = range(1977, 2025)
+        years = range(2024, 2025)
         for year in years:
             DataManager.export_player_metrics(str(year))
 
@@ -15,8 +15,8 @@ if __name__ == "__main__":
 
         # NOTE: Make sure to pass the right variables to each method!
 
-        season = "2022"
-        player_name = "Day'Ron Sharpe"
+        season = "2024"
+        player_name = "Aaron Gordon"
 
         player_data = PlayerData(season, player_name)
         player_teams = player_data.get_teams()
