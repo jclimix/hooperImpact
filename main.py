@@ -3,7 +3,7 @@ import logging
 
 if __name__ == "__main__":
 
-    mode = 'test'
+    mode = 'export'
 
     if mode == 'export':
 

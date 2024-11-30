@@ -10,15 +10,23 @@ logging.basicConfig(
 
 class DataManager:
     @staticmethod
-    def load_csv(file_path):
+    def load_csv(file_path, encoding='utf-8'):
         try:
-            return pd.read_csv(file_path)
+            return pd.read_csv(file_path, encoding=encoding)
         except FileNotFoundError:
             logging.error(f"File not found: {file_path}")
             return pd.DataFrame()
+        except UnicodeDecodeError:
+            logging.warning(f"UnicodeDecodeError encountered. Retrying with 'latin1' encoding for file: {file_path}")
+            try:
+                return pd.read_csv(file_path, encoding='latin1')  # Fallback encoding
+            except Exception as e:
+                logging.error(f"Failed to load file {file_path} with fallback encoding: {e}")
+                return pd.DataFrame()
         except Exception as e:
             logging.error(f"Error loading file {file_path}: {e}")
             return pd.DataFrame()
+
 
     @staticmethod
     def export_player_metrics(season):
@@ -31,13 +39,13 @@ class DataManager:
 
         export_data = []
 
-        # track processed players to avoid duplicates
+        # Track processed players to avoid duplicates
         processed_players = set()
 
         for _, row in player_data.iterrows():
             player_name = row['Player']
             if player_name in processed_players:
-                continue  # skip all duplicate players
+                continue  # Skip duplicate players
 
             processed_players.add(player_name)
             logging.info(f"Processing metrics for player: {player_name}")
@@ -48,7 +56,7 @@ class DataManager:
                 player_teams = player_obj.get_teams()
 
                 age, position = None, None
-                games_played, minutes_played = 0, 0
+                games_played, minutes_played, postseason_minutes_played = 0, 0, 0
                 reg_per, post_per = None, None
 
                 for team in player_teams:
@@ -60,7 +68,7 @@ class DataManager:
 
                     if not reg_data.empty:
                         try:
-                            # get player data from regular season
+                            # Get player data from regular season
                             reg_row = reg_data.loc[reg_data['Player'] == player_name].iloc[0]
                             age = reg_row.get('Age', age)
                             position = reg_row.get('Pos', position)
@@ -72,13 +80,14 @@ class DataManager:
 
                     if not post_data.empty:
                         try:
-                            # get player data from postseason 
+                            # Get player data from postseason
                             post_row = post_data.loc[post_data['Player'] == player_name].iloc[0]
+                            postseason_minutes_played += post_row.get('MP', 0)
                             post_per = post_row.get('PER', post_per)
                         except IndexError:
                             logging.warning(f"{player_name} not found in {team} postseason stats.")
 
-                # custom metrics
+                # Custom metrics
                 rs_pcp = MetricsCalculator.calculate_rs_pcp(season, player_name)
                 rs_pcp_adjusted = MetricsCalculator.calculate_adjusted_rs_pcp(season, player_name, rs_pcp)
                 ps_pcp = MetricsCalculator.calculate_ps_pcp(season, player_name)
@@ -86,7 +95,7 @@ class DataManager:
                 rs_pim = MetricsCalculator.calculate_rs_pim(season, player_name, rs_pcp)
                 ps_pim = MetricsCalculator.calculate_ps_pim(season, player_name, ps_pcp)
 
-                # convert lists to strings or floats
+                # Convert lists to strings or floats
                 rs_pcp_str = ', '.join(map(str, rs_pcp))
                 ps_pcp_str = ', '.join(map(str, ps_pcp))
 
@@ -95,10 +104,11 @@ class DataManager:
                     "Age": age,
                     "Position": position,
                     "Teams": ', '.join(player_teams),
-                    "Games Played": games_played,
-                    "Minutes Played": minutes_played,
-                    "Regular Season PER": reg_per,
-                    "Postseason PER": post_per,
+                    "Games": games_played,
+                    "rsMinutesPlayed": minutes_played,
+                    "psMinutesPlayed": postseason_minutes_played,
+                    "rsPER": reg_per,
+                    "psPER": post_per,
                     "rsPCP": rs_pcp_str,
                     "rsPCP_Adjusted": rs_pcp_adjusted,
                     "psPCP": ps_pcp_str,
