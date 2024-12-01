@@ -251,49 +251,70 @@ class MetricsCalculator:
         logger.info(f"Calculating TPS for {last_team_abbreviation} in {season}.")
 
         team_data = TeamData(season, [last_team_abbreviation])
-        team_name = team_data.get_team_names()[-1] 
+        team_name = team_data.get_team_names()[-1]
 
-        # pull a team's postseason performance data and store in vars for calculations
+        # pull postseason performance data
         postseason_data = DataManager.load_csv(f"nba_data/nba_playoffs_data/{season}_playoff_data.csv")
 
         if team_name in postseason_data["Team"].values:
-            R1_Wins = postseason_data.loc[postseason_data["Team"] == team_name, "R1_Wins"].values[0]
-            R1_Losses = postseason_data.loc[postseason_data["Team"] == team_name, "R1_Losses"].values[0]
-            R2_Wins = postseason_data.loc[postseason_data["Team"] == team_name, "R2_Wins"].values[0]
-            R2_Losses = postseason_data.loc[postseason_data["Team"] == team_name, "R2_Losses"].values[0]
-            R3_Wins = postseason_data.loc[postseason_data["Team"] == team_name, "R3_Wins"].values[0]
-            R3_Losses = postseason_data.loc[postseason_data["Team"] == team_name, "R3_Losses"].values[0]
-            R4_Wins = postseason_data.loc[postseason_data["Team"] == team_name, "R4_Wins"].values[0]
-            R4_Losses = postseason_data.loc[postseason_data["Team"] == team_name, "R4_Losses"].values[0]
+            # weights for each round
+            round_weights = {
+                "R1": 1.0,
+                "R2": 1.2,
+                "R3": 1.4,
+                "R4": 1.6
+            }
+
+            # get wins and losses for each round
+            round_results = {}
+            for round_key in ["R1", "R2", "R3", "R4"]:
+                round_results[f"{round_key}_Wins"] = postseason_data.loc[
+                    postseason_data["Team"] == team_name, f"{round_key}_Wins"
+                ].values[0]
+                round_results[f"{round_key}_Losses"] = postseason_data.loc[
+                    postseason_data["Team"] == team_name, f"{round_key}_Losses"
+                ].values[0]
 
             # check for first-round bye
-            if R1_Wins == 0 and R1_Losses == 0:
+            if round_results["R1_Wins"] == 0 and round_results["R1_Losses"] == 0:
                 logger.info(f"{team_name} had a first-round bye in {season}.")
 
-                # adjust for bye: start from the second round
-                total_games_played = (R2_Wins + R2_Losses) + (R3_Wins + R3_Losses) + (R4_Wins + R4_Losses)
-                weighted_wins = (R2_Wins * 1.2) + (R3_Wins * 1.4) + (R4_Wins * 1.6)
+                # start calculations from the second round
+                total_games_played = sum(
+                    round_results[f"{round_key}_Wins"] + round_results[f"{round_key}_Losses"]
+                    for round_key in ["R2", "R3", "R4"]
+                )
+                weighted_wins = sum(
+                    round_results[f"{round_key}_Wins"] * round_weights[round_key]
+                    for round_key in ["R2", "R3", "R4"]
+                )
             else:
-                # typical case with no first-round bye
-                total_games_played = (R1_Wins + R1_Losses) + (R2_Wins + R2_Losses) + (R3_Wins + R3_Losses) + (R4_Wins + R4_Losses)
-                weighted_wins = (R1_Wins * 1.0) + (R2_Wins * 1.2) + (R3_Wins * 1.4) + (R4_Wins * 1.6)
+                # no first-round bye
+                total_games_played = sum(
+                    round_results[f"{round_key}_Wins"] + round_results[f"{round_key}_Losses"]
+                    for round_key in ["R1", "R2", "R3", "R4"]
+                )
+                weighted_wins = sum(
+                    round_results[f"{round_key}_Wins"] * round_weights[round_key]
+                    for round_key in ["R1", "R2", "R3", "R4"]
+                )
 
-            # determine advancement bonus
-            if R4_Wins > R4_Losses:
+            # advancement bonus
+            if round_results["R4_Wins"] > round_results["R4_Losses"]:
                 advancement_bonus = 3.0  # NBA Champion
-            elif R3_Wins > R3_Losses:
-                advancement_bonus = 2.0  # Reached NBA Finals
-            elif R2_Wins > R2_Losses:
-                advancement_bonus = 1.0  # Reached Conference Finals
+            elif round_results["R3_Wins"] > round_results["R3_Losses"]:
+                advancement_bonus = 2.0  # reach NBA Finals
+            elif round_results["R2_Wins"] > round_results["R2_Losses"]:
+                advancement_bonus = 1.0  # reach Conference Finals
             else:
-                advancement_bonus = 0.0  # Eliminated in First Round
+                advancement_bonus = 0.0  # eliminated in First Round
 
+            # calculate TPS
             tps = (weighted_wins + advancement_bonus) / (total_games_played + 4)  # add 4 for normalization
             return round(tps, 3)
 
         logger.error(f"Team {team_name} not found in postseason data.")
-        # teams not found means they did not qualify for the postseason and receive a TPS of zero
-        return 0
+        return 0  # teams not found receive a TPS of zero
 
     # calculate regular season Player Contribution Percentage (rsPCP): measure of individual player's statistical contribution to their team(s) in regular season
     @staticmethod
