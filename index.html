@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HooperImpact | Player Impact Database</title>
+    <style>
+        /* General body and background styles */
+        body {
+            font-family: 'Arial', sans-serif;
+            background: url('https://i.ibb.co/RNGmG6q/Hooper-Impact-Background-Blur.png') no-repeat center center fixed;
+            background-size: cover;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        /* Entry Animation */
+        #entry-animation {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: white;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            opacity: 1;
+            transition: opacity 1s ease-out;
+        }
+
+        #entry-animation.hidden {
+            opacity: 0;
+            visibility: hidden;
+        }
+
+        /* Content Fade-In */
+        #content-container {
+            opacity: 0;
+            transition: opacity 1s ease-in 1s;
+        }
+
+        #content-container.visible {
+            opacity: 1;
+        }
+
+        .logo-container {
+            margin-bottom: 20px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .logo-container img {
+            max-width: 300px; /* Larger logo */
+            width: 80%;
+            height: auto;
+        }
+
+        .container {
+            background-color: rgba(255, 255, 255, 0.9);
+            border: 1px solid #ddd;
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: 0 6px 15px rgba(0, 0, 0, 0.2);
+            width: 90%;
+        }
+
+        .filters {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            gap: 10px;
+        }
+
+        .filters select,
+        .filters input {
+            padding: 12px;
+            border: 1px solid #ddd;
+            border-radius: 30px;
+            font-size: 16px;
+        }
+
+        .filters select {
+            width: 250px;
+        }
+
+        .filters .search-bar {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .filters .search-bar input {
+            padding: 12px;
+            border: 1px solid #ddd;
+            border-radius: 30px;
+            font-size: 16px;
+            width: 350px;
+        }
+
+        .filters .search-bar button {
+            background-color: #61a0ff;
+            color: white;
+            border: none;
+            border-radius: 30px;
+            padding: 10px 25px;
+            font-size: 16px;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+        }
+
+        .filters .search-bar button:hover {
+            background-color: #3b87ff;
+        }
+
+        .table-container {
+            overflow-x: auto;
+            border-radius: 12px;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: separate;
+            border-spacing: 0;
+            min-width: 1200px;
+            margin-top: 10px;
+        }
+
+        th,
+        td {
+            border: 1px solid #ddd;
+            padding: 14px;
+            text-align: center;
+        }
+
+        th {
+            background-color: #4CAF50;
+            color: white;
+            font-weight: bold;
+            cursor: pointer;
+        }
+
+        th:hover {
+            background-color: #45a049;
+        }
+
+        /* Rounded corners for headers and last row */
+        th:first-child {
+            border-top-left-radius: 12px;
+        }
+
+        th:last-child {
+            border-top-right-radius: 12px;
+        }
+
+        tr:last-child td:first-child {
+            border-bottom-left-radius: 12px;
+        }
+
+        tr:last-child td:last-child {
+            border-bottom-right-radius: 12px;
+        }
+
+        td {
+            background-color: #f9f9f9;
+        }
+
+        tr:nth-child(even) td {
+            background-color: #f1f1f1;
+        }
+
+        tr:hover td {
+            background-color: #dce7ff;
+        }
+    </style>
+</head>
+
+<body>
+    <!-- Entry Animation -->
+    <div id="entry-animation">
+        <img src="https://i.ibb.co/LRCscQH/Hooper-Impact-Background.png" alt="Hooper Impact Background" style="width: 100%; height: 100%; object-fit: cover;">
+    </div>
+
+    <!-- Main Content -->
+    <div id="content-container">
+        <div class="logo-container">
+            <img src="https://i.ibb.co/sqRxw8z/Hooper-Impact-Logo-white.png" alt="Logo">
+        </div>
+        <div class="container">
+            <div class="filters">
+                <select id="season-dropdown">
+                    <option value="" disabled selected>Select Season</option>
+                    <script>
+                        for (let year = 1976; year <= 2023; year++) {
+                            let nextYear = (year + 1).toString().slice(-2);
+                            document.write(`<option value="${year}-${nextYear}">${year}-${nextYear}</option>`);
+                        }
+                    </script>
+                </select>
+                <select id="metric-dropdown">
+                    <option value="" disabled selected>Select Metric</option>
+                    <option value="mode1">Mode 1</option>
+                    <option value="mode2">Mode 2</option>
+                    <option value="mode3">Mode 3</option>
+                </select>
+                <div class="search-bar">
+                    <input type="text" placeholder="Type player name...">
+                    <button>Search</button>
+                </div>
+            </div>
+            <div class="table-container">
+                <table id="stats-table">
+                    <thead>
+                        <tr>
+                            <th onclick="sortTable(0)">Player</th>
+                            <th onclick="sortTable(1)">Age</th>
+                            <th onclick="sortTable(2)">Position</th>
+                            <th onclick="sortTable(3)">Teams</th>
+                            <th onclick="sortTable(4)">Games</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>Shai Gilgeous-Alexander</td>
+                            <td>25</td>
+                            <td>PG</td>
+                            <td>OKC</td>
+                            <td>75</td>
+                        </tr>
+                        <tr>
+                            <td>Jalen Brunson</td>
+                            <td>27</td>
+                            <td>PG</td>
+                            <td>NYK</td>
+                            <td>77</td>
+                        </tr>
+                        <tr>
+                            <td>Anthony Edwards</td>
+                            <td>22</td>
+                            <td>SG</td>
+                            <td>MIN</td>
+                            <td>79</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Sort table by clicking on column headers
+        function sortTable(columnIndex) {
+            const table = document.getElementById("stats-table");
+            const rows = Array.from(table.rows).slice(1); // Exclude header row
+            const isAscending = table.getAttribute("data-sort-order") === "asc";
+            rows.sort((a, b) => {
+                const aText = a.cells[columnIndex].innerText;
+                const bText = b.cells[columnIndex].innerText;
+                const aValue = isNaN(aText) ? aText.toLowerCase() : parseFloat(aText);
+                const bValue = isNaN(bText) ? bText.toLowerCase() : parseFloat(bText);
+                return isAscending ? aValue > bValue ? 1 : -1 : aValue < bValue ? 1 : -1;
+            });
+            table.tBodies[0].append(...rows);
+            table.setAttribute("data-sort-order", isAscending ? "desc" : "asc");
+        }
+
+        // Handle entry animation
+        window.addEventListener("load", () => {
+            const animation = document.getElementById("entry-animation");
+            const content = document.getElementById("content-container");
+
+            setTimeout(() => {
+                animation.classList.add("hidden");
+                setTimeout(() => content.classList.add("visible"), 1000);
+            }, 2000);
+        });
+    </script>
+</body>
+
+</html>

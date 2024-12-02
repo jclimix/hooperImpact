@@ -3,11 +3,11 @@ from loguru import logger
 
 if __name__ == "__main__":
 
-    mode = 'test'
+    mode = 'export'
 
     if mode == 'export':
 
-        years = range(2024, 2025)
+        years = range(1977, 2025)
         for year in years:
             DataManager.export_player_metrics(str(year))
 
