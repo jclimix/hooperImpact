@@ -1,0 +1,462 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HooperImpact | Player Impact Database</title>
+
+    <link rel="icon" href="https://i.ibb.co/yXcbqyv/favicon-16x16.png" type="image/png">
+
+    <link href="https://fonts.googleapis.com/css2?family=Oswald:wght@300;400;500&display=swap" rel="stylesheet">
+    <link
+        href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&family=Montserrat:wght@400;500;700&display=swap"
+        rel="stylesheet">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Poppins:ital,wght@0,100;0,200;0,300;0,400;0,500;0,600;0,700;0,800;0,900;1,100;1,200;1,300;1,400;1,500;1,600;1,700;1,800;1,900&display=swap"
+        rel="stylesheet">
+
+    <style>
+        body {
+            font-family: "Poppins", sans-serif;
+            font-weight: 400;
+            font-style: normal;
+            background: url('https://i.ibb.co/RNGmG6q/Hooper-Impact-Background-Blur.png') no-repeat center center fixed;
+            background-size: cover;
+            margin: 0;
+            padding: 0;
+            flex-direction: column;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+        }
+
+        h1 {
+            font-family: 'Oswald', sans-serif;
+            font-size: 3rem;
+            font-weight: bold;
+            color: #ffffff;
+            text-align: center;
+            margin: 20px 0;
+            text-shadow: 2px 2px 8px rgba(0, 0, 0, 0.5);
+            line-height: 1.2;
+        }
+
+        #entry-animation {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: white;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            opacity: 1;
+            transition: opacity 0.3s ease-out;
+        }
+
+        #entry-animation.hidden {
+            opacity: 0;
+            visibility: hidden;
+        }
+
+        #content-container {
+            opacity: 0;
+            transition: opacity 0.5s ease-in 0.5s;
+        }
+
+        #content-container.visible {
+            opacity: 1;
+        }
+
+        .logo-container {
+            margin-bottom: 20px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .logo-container img {
+            max-width: 300px;
+            width: 80%;
+            height: auto;
+        }
+
+        .container {
+            background-color: rgba(19, 19, 19, 0.65);
+            border-radius: 12px;
+            padding: 10px;
+            box-shadow: 0 6px 15px rgba(0, 0, 0, 0.2);
+            flex-direction: column;
+            align-items: center;
+            width: auto;
+            max-width: 80%;
+            display: flex;
+            margin: auto;
+            box-sizing: border-box;
+            text-align: center;
+            overflow: auto;
+            justify-content: center;
+            min-width: 100px;
+        }
+
+        .filters {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            gap: 10px;
+            width: 100%;
+        }
+
+        .filters select,
+        .filters input {
+            padding: 12px;
+            border: 1px solid #ddd;
+            border-radius: 30px;
+            font-size: 16px;
+            width: auto;
+        }
+
+        .filters select {
+            width: 250px;
+        }
+
+        .filters .search-bar {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .filters .search-bar input {
+            padding: 12px;
+            border: 1px solid #ddd;
+            border-radius: 30px;
+            font-size: 16px;
+            width: 350px;
+        }
+
+        .filters .search-bar button {
+            background-color: #007bff;
+            color: white;
+            border: none;
+            border-radius: 30px;
+            padding: 10px 25px;
+            font-size: 16px;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+        }
+
+        .filters .search-bar button:hover {
+            background-color: #0467d2;
+        }
+
+        #metric-dropdown {
+            width: 350px;
+        }
+
+        .table-container {
+            overflow-x: auto;
+            border-radius: 12px;
+            max-width: 100%;
+            display: flex;
+            justify-content: center;
+        }
+
+        table {
+            margin: auto;
+            width: auto;
+            border-collapse: collapse;
+            border-spacing: 0;
+        }
+
+        th,
+        td {
+            border: 1px solid #1d1d1d;
+            padding: 14px;
+            text-align: center;
+        }
+
+        th {
+            background-color: #1e6e8e;
+            color: white;
+            font-weight: bold;
+            cursor: pointer;
+        }
+
+        th:hover {
+            background-color: #144a5f;
+        }
+
+        th:first-child {
+            border-top-left-radius: 12px;
+        }
+
+        th:last-child {
+            border-top-right-radius: 12px;
+        }
+
+        tr:last-child td:first-child {
+            border-bottom-left-radius: 12px;
+        }
+
+        tr:last-child td:last-child {
+            border-bottom-right-radius: 12px;
+        }
+
+        td {
+            background-color: #f9f9f9;
+        }
+
+        tr:nth-child(even) td {
+            background-color: #f1f1f1;
+        }
+
+        tr:hover td {
+            background-color: #dce7ff;
+        }
+
+        .button-container {
+            display: block;
+            width: 100%;
+            text-align: center;
+        }
+
+        .google-doc-btn {
+            width: 300px;
+            padding: 10px;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            font-size: 30px;
+            cursor: pointer;
+            font-family: 'Oswald', sans-serif;
+            display: inline-block;
+            margin: 0 auto;
+            text-decoration: none;
+            text-align: center;
+            vertical-align: center;
+            border-radius: 20px;
+            transition: background-color 0.3s ease;
+        }
+
+        .google-doc-btn:hover {
+            background-color: #0056b3;
+            text-decoration: none;
+        }
+
+        @media (max-width: 768px) {
+            h1 {
+                font-size: 30px;
+                text-shadow: 2px 2px 8px rgba(0, 0, 0, 0.25);
+            }
+
+            .container {
+                max-width: 100%;
+                padding: 10px;
+            }
+
+            .filters {
+                flex-direction: column;
+                gap: 8px;
+            }
+
+            .filters select,
+            .filters input,
+            .filters .search-bar input {
+                max-width: 150px;
+                padding: 5px;
+                font-size: 10px;
+            }
+
+            .filters .search-bar {
+                flex-direction: column;
+                align-items: center;
+            }
+
+            .filters select,
+            .filters .search-bar input {
+                width: 250px;
+            }
+
+            .filters .search-bar button {
+                width: 70%;
+                background-color: #007bff;
+                color: white;
+                border: none;
+                font-size: 13px;
+                cursor: pointer;
+                font-family: 'Oswald', sans-serif;
+                margin: 0 auto;
+                text-decoration: none;
+                text-align: center;
+                vertical-align: center;
+                border-radius: 20px;
+                margin-top: 15px;
+            }
+
+            table {
+                font-size: 8px;
+                min-width: 400px;
+                margin-left: 240px;
+            }
+
+            th,
+            td {
+                padding: 3px;
+            }
+
+            .table-container {
+                margin: 0;
+                padding: 5px;
+            }
+
+            .google-doc-btn {
+                width: 180px;
+                font-size: 16px;
+                padding: 8px;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div id="entry-animation">
+        <img src="https://i.ibb.co/LRCscQH/Hooper-Impact-Background.png" alt="Hooper Impact Background"
+            style="width: 100%; height: 100%; object-fit: cover;">
+    </div>
+
+    <div id="content-container">
+        <div class="logo-container">
+            <img src="https://i.ibb.co/sqRxw8z/Hooper-Impact-Logo-white.png" alt="Logo">
+        </div>
+
+        <div class="button-container">
+            <a href="https://docs.google.com/document/d/1f_Hw4krJIkG2fBnnDMl84XWB1DXCOU_yXmRdkorPqu4/edit?usp=sharing"
+                target="_blank" class="google-doc-btn">G-Documentation</a>
+        </div>
+
+        <br><br>
+
+        <h1>{{selected_season}} Season Data</h1>
+
+        <div class="container">
+            <br>
+            <form method="POST" action="/">
+                <div class="filters">
+                    <select name="season" id="season-dropdown" required>
+                        <option value="" disabled>Select Season</option>
+                        {% for year in range(1976, 2024) %}
+                        {% set next_year = year + 1 %}
+                        {% set season = year|string + '-' + ('%02d' % (next_year % 100)) %}
+                        {% set selected_format = (selected_season|int - 1)|string + '-' + ('%02d' % (selected_season|int
+                        % 100)) if selected_season else '' %}
+                        <option value="{{ season }}" {% if season==selected_format %}selected{% endif %}>
+                            {{ season }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                    <select name="view_type" id="metric-dropdown" required>
+                        <option value="" disabled>Select Metric Filter</option>
+                        <option value="default" {{ 'selected' if view_type=='default' else '' }}>Default</option>
+                        <option value="guards_only" {{ 'selected' if view_type=='guards_only' else '' }}>Guards</option>
+                        <option value="forwards_only" {{ 'selected' if view_type=='forwards_only' else '' }}>Forwards
+                        </option>
+                        <option value="centers_only" {{ 'selected' if view_type=='centers_only' else '' }}>Centers
+                        </option>
+                        <option value="over10_rsPCP" {{ 'selected' if view_type=='over10_rsPCP' else '' }}>10%+ of Team
+                            Production (Reg Season)</option>
+                        <option value="over20_rsPCP" {{ 'selected' if view_type=='over20_rsPCP' else '' }}>20%+ of Team
+                            Production (Reg Season)</option>
+                        <option value="over10_psPCP" {{ 'selected' if view_type=='over10_psPCP' else '' }}>10%+ of Team
+                            Production (Playoffs)</option>
+                        <option value="over20_psPCP" {{ 'selected' if view_type=='over20_psPCP' else '' }}>20%+ of Team
+                            Production (Playoffs)</option>
+                        <option value="over100_rsPIM" {{ 'selected' if view_type=='over100_rsPIM' else '' }}>Elite Team
+                            Impact (Reg Season)</option>
+                        <option value="over100_psPIM" {{ 'selected' if view_type=='over100_psPIM' else '' }}>Elite Team
+                            Impact (Playoffs)</option>
+                        <option value="range60_99_rsPIM" {{ 'selected' if view_type=='range60_99_rsPIM' else '' }}>
+                            Substantial Team Impact (Reg Season)</option>
+                        <option value="range60_99_psPIM" {{ 'selected' if view_type=='range60_99_psPIM' else '' }}>
+                            Substantial Team Impact (Playoffs)</option>
+                        <option value="raw" {{ 'selected' if view_type=='raw' else '' }}>Raw Data</option>
+                    </select>
+                    <div class="search-bar">
+                        <input type="text" name="player_search" placeholder="Type player name..."
+                            value="{{ player_search }}">
+                        <button type="submit">Search</button>
+                    </div>
+                </div>
+            </form>
+            <div class="table-container">
+                {{ table_html|safe }}
+            </div>
+        </div>
+    </div>
+
+    <br><br>
+
+    <script>
+        document.addEventListener("DOMContentLoaded", function () {
+            const table = document.getElementById("stats-table");
+            if (table) {
+                const headers = table.querySelectorAll("th");
+                headers.forEach((header, index) => {
+                    header.addEventListener("click", () => sortTable(index, table));
+                });
+            }
+        });
+
+        function sortTable(columnIndex, table) {
+            const rows = Array.from(table.querySelectorAll("tbody tr"));
+            const isAscending = table.getAttribute("data-sort-order") === "asc";
+            rows.sort((a, b) => {
+                const aText = a.cells[columnIndex].innerText;
+                const bText = b.cells[columnIndex].innerText;
+                const aValue = isNaN(aText) ? aText.toLowerCase() : parseFloat(aText);
+                const bValue = isNaN(bText) ? bText.toLowerCase() : parseFloat(bText);
+                return isAscending ? (aValue > bValue ? 1 : -1) : (aValue < bValue ? 1 : -1);
+            });
+            const tbody = table.querySelector("tbody");
+            tbody.append(...rows);
+            table.setAttribute("data-sort-order", isAscending ? "desc" : "asc");
+        }
+
+        window.addEventListener("load", () => {
+            const animation = document.getElementById("entry-animation");
+            const content = document.getElementById("content-container");
+
+            if (localStorage.getItem("visited")) {
+                animation.style.display = "none";
+                content.classList.add("visible");
+            } else {
+                setTimeout(() => {
+                    animation.classList.add("hidden");
+                    setTimeout(() => content.classList.add("visible"), 0);
+                }, 3500);
+
+                localStorage.setItem("visited", "true");
+            }
+        });
+
+        document.addEventListener("DOMContentLoaded", () => {
+            const form = document.querySelector("form");
+            const seasonDropdown = document.getElementById("season-dropdown");
+
+            if (!localStorage.getItem("formSubmitted")) {
+                form.submit();
+
+                localStorage.setItem("formSubmitted", "true");
+            }
+        });
+
+    </script>
+</body>
+
+</html>

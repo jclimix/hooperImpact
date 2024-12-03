@@ -33,7 +33,7 @@ def create_view(view_type, table_name="player_table", player_search=None, team_a
             rsPCP AS "Regular Season PCP",
             CAST(rsPCP_Adjusted AS DOUBLE) * 100 AS "Adjusted Regular Season PCP (%)",
             CAST(psPCP AS DOUBLE) * 100 AS "Postseason PCP (%)",
-            CAST(TPS AS DOUBLE) * 100 AS "Total Player Score (%)",
+            CAST(TPS AS DOUBLE) * 100 AS "Team Postseason Score (%)",
             rsPIM AS "Regular Season PIM",
             psPIM AS "Postseason PIM"
         FROM {table_name}
