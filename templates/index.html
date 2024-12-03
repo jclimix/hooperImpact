@@ -45,6 +45,17 @@
             line-height: 1.2;
         }
 
+        p {
+            font-family: 'Oswald', sans-serif;
+            font-size: 19px;
+            font-weight: bold;
+            color: #ffffff;
+            text-align: center;
+            margin: 20px 0;
+            text-shadow: 2px 2px 8px rgba(0, 0, 0, 0.5);
+            line-height: 1.2;
+        }
+
         #entry-animation {
             position: fixed;
             top: 0;
@@ -263,6 +274,10 @@
                 text-shadow: 2px 2px 8px rgba(0, 0, 0, 0.25);
                 margin-top: -20px;
             }
+            p {
+                font-size: 11px;
+                text-shadow: 2px 2px 8px rgba(0, 0, 0, 0.25);
+            }
 
             .container {
                 max-width: 100%;
@@ -352,6 +367,7 @@
         <br><br>
 
         <h1>{{selected_season}} Season Data</h1>
+        <p id="warning"><b><span style="color: rgb(189, 27, 27);">NOTE:</span> You might need to try a different metric filter.</b></p>
 
         <div class="container">
             <br>
@@ -466,13 +482,16 @@
 
         document.addEventListener('DOMContentLoaded', () => {
             const table = document.querySelector('table'); 
-            const container = document.querySelector('.container'); 
+            const container = document.querySelector('.container');
+            const paragraph = document.getElementById('warning');             
             const rowCount = table.querySelectorAll('tr').length;
 
             if (rowCount > 1) {
-                container.style.alignItems = 'center'; 
+                container.style.alignItems = 'center';
+                paragraph.style.opacity = 0;
             } else {
-                container.style.alignItems = ''; 
+                container.style.alignItems = '';
+                paragraph.style.opacity = 1; 
             }
         });
 
