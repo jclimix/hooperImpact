@@ -3,7 +3,7 @@ from loguru import logger
 
 if __name__ == "__main__":
 
-    mode = 'export'
+    mode = 'test'
 
     if mode == 'export':
 
@@ -15,8 +15,8 @@ if __name__ == "__main__":
 
         # NOTE: Make sure to pass the right variables to each method!
 
-        season = "2024"
-        player_name = "Aaron Gordon"
+        season = "2017"
+        player_name = "Stephen Curry"
 
         player_data = PlayerData(season, player_name)
         player_teams = player_data.get_teams()
