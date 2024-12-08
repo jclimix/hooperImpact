@@ -90,9 +90,9 @@ def get_data(season, view_type='default', player_search=None, team_abbreviation=
 
     con.close()
 
-# main-to-be
-season = '2024'
-view_type = 'player_filter'
-player_search = 'Shai'
-team_abbreviation = None
-get_data(season, view_type, player_search, team_abbreviation)
+if __name__ == "__main__":
+    season = '2024'
+    view_type = 'player_filter'
+    player_search = 'Shai'
+    team_abbreviation = None
+    get_data(season, view_type, player_search, team_abbreviation)
