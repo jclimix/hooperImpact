@@ -2,8 +2,7 @@ import duckdb
 import pandas as pd
 from all_classes import DataManager
 import unicodedata
-import logging
-
+from loguru import logger
 
 def normalize_unicode_column(value):
     if isinstance(value, str):
@@ -94,13 +93,13 @@ def get_data(season, view_type="default", player_search=None, team_abbreviation=
     try:
         df = DataManager.load_csv(file_path, encoding="utf-8")
     except UnicodeDecodeError:
-        logging.warning(
+        logger.warning(
             f"UnicodeDecodeError encountered. Retrying with 'latin1' encoding: {file_path}"
         )
         df = DataManager.load_csv(file_path, encoding="latin1")
 
     if df.empty:
-        logging.error(f"Failed to load data or data is empty: {file_path}")
+        logger.error(f"Failed to load data or data is empty: {file_path}")
         return pd.DataFrame()
 
     df = normalize_unicode(df)
@@ -132,8 +131,8 @@ if __name__ == "__main__":
     if selected_season != "":
         selected_season = convert_season_string(selected_season)
 
-    logging.info(f"view_type: {view_type}")
-    logging.info(f"player_search: {player_search}")
+    logger.info(f"view_type: {view_type}")
+    logger.info(f"player_search: {player_search}")
 
     if selected_season:
         result_df = get_data(selected_season, view_type=view_type, player_search=player_search)
