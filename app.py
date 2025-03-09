@@ -1,139 +1,103 @@
-import duckdb
+from flask import Flask, render_template, request, redirect, url_for
 import pandas as pd
-from all_classes import DataManager
-import unicodedata
-from loguru import logger
+from filter_player_impact import filter_players, rename_and_drop_columns, add_rank_column, season_to_year
+from process_player_impact import process_player_impact
 
-def normalize_unicode_column(value):
-    if isinstance(value, str):
-        try:
-            return unicodedata.normalize("NFKC", value.encode("latin1").decode("utf-8"))
-        except (UnicodeEncodeError, UnicodeDecodeError):
-            return unicodedata.normalize("NFKC", value)
-    return value
+app = Flask(__name__)
 
-
-def normalize_unicode(df):
-    for col in df.select_dtypes(include=[object]):
-        df[col] = df[col].apply(normalize_unicode_column)
-    return df
-
-
-def convert_season_string(season):
+def get_version():
     try:
-        start_year, end_year_suffix = season.split("-")
-        end_year = str(int(start_year) + 1)
-        return end_year
-    except ValueError:
-        raise ValueError(f"Invalid season format: {season}. Expected format 'YYYY-YY'.")
+        with open('version.txt', 'r') as f:
+            version = f.read().strip()
+        return version
+    except Exception as e:
+        print(f"Error reading version file: {e}")
+        return "v?.?.?"  # Default fallback version
 
+version = get_version()
 
-def create_view(
-    view_type, table_name="player_table", player_search=None, team_abbreviation=None
-):
-    main_select = f"""
-        SELECT 
-            Player,
-            Age,
-            Position,
-            Teams,
-            Games AS "Games Played",
-            rsMinutesPlayed AS "Regular Season Minutes Played",
-            psMinutesPlayed AS "Postseason Minutes Played",
-            rsPER AS "Regular Season PER",
-            psPER AS "Postseason PER",
-            CAST(rsPCP_Adjusted AS DOUBLE) * 100 AS "Adjusted Regular Season PCP (%)",
-            CAST(psPCP AS DOUBLE) * 100 AS "Postseason PCP (%)",
-            CAST(TPS AS DOUBLE) * 100 AS "Team Postseason Score",
-            rsPIM AS "Regular Season PIM",
-            psPIM AS "Postseason PIM"
-        FROM {table_name}
-    """
-
-    minutes_filter = "WHERE rsMinutesPlayed > 200 AND psMinutesPlayed > 100"
-    player_filter = f" AND Player ILIKE '%{player_search}%'" if player_search else ""
-    team_filter = (
-        f" AND Teams ILIKE '%{team_abbreviation}%'" if team_abbreviation else ""
-    )
-    guards_filter = " AND Position ILIKE '%G%'"
-    forwards_filter = " AND Position ILIKE '%F%'"
-    centers_filter = " AND Position ILIKE '%C%'"
-    over10_rsPCP = " AND rsPCP_Adjusted > 0.10"
-    over20_rsPCP = " AND rsPCP_Adjusted > 0.20"
-    over10_psPCP = " AND psPCP > 0.10"
-    over20_psPCP = " AND psPCP > 0.20"
-    over100_rsPIM = " AND rsPIM > 100"
-    over100_psPIM = " AND psPIM > 100"
-    range60_99_rsPIM = " AND rsPIM > 60 AND rsPIM < 100"
-    range60_99_psPIM = " AND psPIM > 60 AND psPIM < 100"
-
-    views = {
-        "raw": f"CREATE VIEW player_metrics_view AS SELECT * FROM {table_name};",
-        "default": f"CREATE VIEW player_metrics_view AS {main_select} {minutes_filter};",
-        "player_filter": f"CREATE VIEW player_metrics_view AS {main_select} {minutes_filter} {player_filter};",
-        "team_filter": f"CREATE VIEW player_metrics_view AS {main_select} {minutes_filter} {team_filter};",
-        "guards_only": f"CREATE VIEW player_metrics_view AS {main_select} {minutes_filter} {guards_filter};",
-        "forwards_only": f"CREATE VIEW player_metrics_view AS {main_select} {minutes_filter} {forwards_filter};",
-        "centers_only": f"CREATE VIEW player_metrics_view AS {main_select} {minutes_filter} {centers_filter};",
-        "over10_rsPCP": f"CREATE VIEW player_metrics_view AS {main_select} {minutes_filter} {over10_rsPCP};",
-        "over20_rsPCP": f"CREATE VIEW player_metrics_view AS {main_select} {minutes_filter} {over20_rsPCP};",
-        "over10_psPCP": f"CREATE VIEW player_metrics_view AS {main_select} {minutes_filter} {over10_psPCP};",
-        "over20_psPCP": f"CREATE VIEW player_metrics_view AS {main_select} {minutes_filter} {over20_psPCP};",
-        "over100_rsPIM": f"CREATE VIEW player_metrics_view AS {main_select} {minutes_filter} {over100_rsPIM};",
-        "over100_psPIM": f"CREATE VIEW player_metrics_view AS {main_select} {minutes_filter} {over100_psPIM};",
-        "range60_99_rsPIM": f"CREATE VIEW player_metrics_view AS {main_select} {minutes_filter} {range60_99_rsPIM};",
-        "range60_99_psPIM": f"CREATE VIEW player_metrics_view AS {main_select} {minutes_filter} {range60_99_psPIM};",
+@app.route('/')
+def index():
+    # Define the filter options for the form
+    positions = ['G', 'F', 'C', 'G/F', 'F/C', 'G/F/C']
+    metrics = {
+        'rs_PIM': 'Reg. Season PIM',
+        'ps_PIM': 'Postseason PIM',
+        'rs_PCP': 'Reg. Season PCP (%)',
+        'ps_PCP': 'Postseason PCP (%)',
+        'TPS': 'Team Postseason Score'
     }
+    
+    # Create seasons list from 1969-70 to 2024-25 in format "1969-70"
+    start_year = 1969
+    end_year = 2024
+    seasons = [f"{year}-{str(year+1)[-2:]}" for year in range(start_year, end_year+1)]
+    
+    return render_template('index.html', positions=positions, metrics=metrics, seasons=seasons, version=version)
 
-    return views.get(view_type, views["default"])
+@app.route('/results', methods=['POST'])
+def results():
+    if request.method == 'POST':
+        # Get form data
+        season = request.form.get('season', '2008-09')
+        year = season_to_year(season)
+        min_age = int(request.form.get('min_age', 0))
+        max_age = request.form.get('max_age', '')
+        position = request.form.get('position', None)
+        min_games = int(request.form.get('min_games', 20))
+        min_minutes = int(request.form.get('min_minutes', 0))
+        metric = request.form.get('metric', 'rs_PIM')
+        min_metric = float(request.form.get('min_metric', 0.0))
+        
+        # Convert empty max_age to None
+        if max_age == '':
+            max_age = None
+        else:
+            max_age = int(max_age)
+            
+        # Process data
+        try:
+            # Get the DataFrame for the selected year
+            impact_df = process_player_impact(year)
+            
+            # Apply filters
+            filtered_df = filter_players(
+                impact_df, 
+                metric_name=metric,
+                min_metric=min_metric,
+                min_games=min_games, 
+                min_minutes=min_minutes,
+                min_age=min_age, 
+                max_age=max_age, 
+                position=position
+            )
+            
+            # Rename columns for display
+            display_df = rename_and_drop_columns(filtered_df)
 
+            display_df = add_rank_column(display_df)
+            
+            # Convert DataFrame to HTML table
+            table_html = display_df.to_html(classes='table table-striped', index=False)
+            
+            return render_template(
+                'results.html', 
+                table=table_html, 
+                season=season,
+                version=version,
+                filters={
+                    'min_age': min_age,
+                    'max_age': max_age if max_age else "No limit",
+                    'position': position if position else "All",
+                    'min_games': min_games,
+                    'min_minutes': min_minutes,
+                    'metric': metric,
+                    'min_metric': min_metric
+                }
+            )
+        except Exception as e:
+            error_message = f"An error occurred: {str(e)}"
+            return render_template('index.html', error=error_message)
 
-def get_data(season, view_type="default", player_search=None, team_abbreviation=None):
-    file_path = f"player_exports/{season}_player_exports.csv"
-    try:
-        df = DataManager.load_csv(file_path, encoding="utf-8")
-    except UnicodeDecodeError:
-        logger.warning(
-            f"UnicodeDecodeError encountered. Retrying with 'latin1' encoding: {file_path}"
-        )
-        df = DataManager.load_csv(file_path, encoding="latin1")
-
-    if df.empty:
-        logger.error(f"Failed to load data or data is empty: {file_path}")
-        return pd.DataFrame()
-
-    df = normalize_unicode(df)
-
-    con = duckdb.connect(":memory:")
-    con.register("player_table", df)
-
-    sql_view = create_view(
-        view_type, player_search=player_search, team_abbreviation=team_abbreviation
-    )
-    con.execute(sql_view)
-
-    result = con.execute("SELECT * FROM player_metrics_view").df()
-
-    con.close()
-    return result
-
-
-if __name__ == "__main__":
-
-    result_df = pd.DataFrame()
-    selected_season = "2023-24"
-    view_type = "default" # change this to select 'mode' which returns predefined SQL views w/filters
-    player_search = ""
-
-    if player_search != "":
-        view_type = "player_filter"
-
-    if selected_season != "":
-        selected_season = convert_season_string(selected_season)
-
-    logger.info(f"view_type: {view_type}")
-    logger.info(f"player_search: {player_search}")
-
-    if selected_season:
-        result_df = get_data(selected_season, view_type=view_type, player_search=player_search)
-        print(result_df) # this will be passed to an HTML file for live site
+if __name__ == '__main__':
+    app.run(host="0.0.0.0", port=8006)
