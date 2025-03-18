@@ -1,0 +1,620 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HooperImpact | {{ season }} Table</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Lexend:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="icon" type="image/x-icon" href="{{ url_for('static', filename='favicon.ico') }}">
+    <style>
+        :root {
+            --primary-color: #0e5ee9;
+            --secondary-color: #0ea5e9;
+            --dark-bg: #1a1a1a;
+            --card-bg: #13161e;
+            --text-color: #ffffff;
+            --text-muted: #b0b0b0;
+            --border-color: #10235d;
+            --table-header-bg: #0f2349;
+            --table-odd-row: #1e293b;
+            --table-even-row: #0f172a;
+            --hover-row: #2d3748;
+        }
+        
+        body {
+            padding: 0;
+            background-color: var(--dark-bg);
+            color: var(--text-color);
+            font-family: 'Lexend', sans-serif;
+        }
+        
+        .navbar {
+            background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+            color: white;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            margin-bottom: 30px;
+            padding: 0;
+            width: 100%;
+        }
+        
+        .navbar .container {
+            max-width: 1200px;
+            background-color: transparent;
+            padding: 10px 15px;
+            border-radius: 0;
+            box-shadow: none;
+            margin-top: 0;
+            margin-bottom: 0;
+        }
+        
+        .content-container {
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1200px;
+            background-color: var(--card-bg);
+            padding: 30px;
+            border-radius: 15px;
+            box-shadow: 0 0 20px rgba(0, 0, 0, 0.5);
+            margin-top: 30px;
+            margin-bottom: 30px;
+        }
+        
+        h1, h2 {
+            color: var(--secondary-color);
+            font-weight: bold;
+            text-shadow: 0 0 10px rgba(14, 165, 233, 0.3);
+        }
+
+        h1 {
+            margin-bottom: 30px;
+        }
+        
+        .table {
+            margin-top: 20px;
+            color: var(--text-color);
+            border-collapse: separate;
+            border-spacing: 0;
+            width: 100%;
+            border: 1px solid var(--border-color);
+            border-radius: 10px;
+            overflow: hidden;
+        }
+        
+        .table th {
+            background: #0c3582;
+            color: white;
+            font-weight: bold;
+            text-transform: none;
+            font-size: 1.1rem; 
+            padding: 15px 8px; 
+            letter-spacing: 1px;
+            border: none;
+            text-align: left;
+            cursor: pointer; 
+        }
+        
+        .table th::after {
+            content: "\f0dc";
+            font-family: "Font Awesome 6 Free";
+            font-weight: 900;
+            margin-left: 5px;
+            opacity: 0.3;
+        }
+        
+        .table th.sort-asc::after {
+            content: "\f0de";
+            opacity: 1;
+        }
+        
+        .table th.sort-desc::after {
+            content: "\f0dd";
+            opacity: 1;
+        }
+        
+        .table td {
+            padding: 10px 8px; 
+            border-top: 1px solid var(--border-color);
+            font-size: 0.95rem;
+            color: var(--text-color);
+        }
+        
+        .table-striped tbody tr:nth-of-type(odd) {
+            background-color: var(--table-odd-row);
+        }
+        
+        .table-striped tbody tr:nth-of-type(even) {
+            background-color: var(--table-even-row);
+        }
+        
+        .table-hover tbody tr:hover {
+            background-color: var(--hover-row);
+        }
+        
+        .filter-summary {
+            background-color: rgba(14, 165, 233, 0.1);
+            padding: 20px;
+            border-radius: 10px;
+            margin-bottom: 25px;
+            border: 1px solid rgba(14, 165, 233, 0.3);
+        }
+        
+        .btn-primary {
+            background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+            border: none;
+            border-radius: 8px;
+            padding: 12px 30px;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(14, 165, 233, 0.3);
+        }
+        
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(14, 165, 233, 0.4);
+        }
+        
+        .table-responsive {
+            overflow-x: auto;
+            margin-top: 30px;
+            border-radius: 10px;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+            max-width: 100%;
+        }
+        
+        table.dataframe {
+            width: 100%;
+            margin-bottom: 1rem;
+            color: var(--text-color);
+            border-collapse: collapse;
+            table-layout: auto;
+        }
+        
+        table.dataframe th, 
+        table.dataframe td {
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            padding: 10px 6px; 
+            color: var(--text-color);
+        }
+        
+        table.dataframe th:nth-child(2),
+        table.dataframe td:nth-child(2) {
+            min-width: 140px; 
+        }
+        
+        table.dataframe th:first-child, 
+        table.dataframe td:first-child {
+            min-width: 60px; 
+            max-width: 80px; 
+        }
+        
+        table.dataframe th:not(:first-child):not(:nth-child(2)),
+        table.dataframe td:not(:first-child):not(:nth-child(2)) {
+            min-width: 80px;
+        }
+        
+        table.dataframe th {
+            white-space: normal;
+            word-wrap: break-word;
+            vertical-align: middle;
+            line-height: 1.2;
+            font-size: 1.1rem; 
+            cursor: pointer; 
+        }
+        
+        .glossary-card {
+            margin-top: 30px;
+            margin-bottom: 30px;
+        }
+        
+        .glossary-content {
+            display: none; 
+        }
+        
+        .glossary-item {
+            margin-bottom: 15px;
+            padding-bottom: 15px;
+            border-bottom: 1px solid var(--border-color);
+        }
+        
+        .glossary-item:last-child {
+            border-bottom: none;
+            margin-bottom: 0;
+            padding-bottom: 0;
+        }
+        
+        .metric-name {
+            font-weight: 700;
+            color: var(--secondary-color);
+            margin-bottom: 5px;
+            font-size: 1.1rem;
+            display: block;
+        }
+        
+        .metric-description {
+            color: var(--text-muted);
+            font-size: 0.95rem;
+            line-height: 1.5;
+        }
+        
+        .toggle-button {
+            background: none;
+            border: none;
+            color: var(--secondary-color);
+            cursor: pointer;
+            float: right;
+            font-size: 1rem;
+            padding: 0;
+            display: flex;
+            align-items: center;
+        }
+        
+        .toggle-button:focus {
+            outline: none;
+        }
+        
+        .toggle-icon {
+            margin-left: 8px;
+            transition: transform 0.3s ease;
+        }
+        
+        .card {
+            background-color: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 15px;
+            margin-bottom: 30px;
+        }
+        
+        .card-header {
+            background-color: rgba(14, 165, 233, 0.1);
+            border-bottom: 1px solid var(--border-color);
+            padding: 15px 20px;
+            border-top-left-radius: 15px;
+            border-top-right-radius: 15px;
+        }
+        
+        .card-body {
+            padding: 25px;
+        }
+        
+        .filter-icon {
+            margin-right: 10px;
+            color: var(--secondary-color);
+        }
+        
+        .filter-item {
+            background-color: #2a2a2a;
+            padding: 10px 15px;
+            border-radius: 8px;
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+        }
+        
+        .filter-item-label {
+            font-weight: 600;
+            color: var(--secondary-color);
+            margin-right: 10px;
+            min-width: 120px;
+        }
+        
+        table.dataframe {
+            width: 100%;
+            margin-bottom: 1rem;
+            color: var(--text-color);
+            border-collapse: collapse;
+        }
+        
+        table.dataframe thead th {
+            color: white;
+            font-weight: bold;
+            text-transform: none;
+            font-size: 1.1rem; 
+            padding: 15px 6px; 
+            vertical-align: bottom;
+            border-bottom: 2px solid var(--border-color);
+            text-align: left;
+            cursor: pointer; 
+        }
+        
+        table.dataframe tbody tr:nth-of-type(odd) {
+            background-color: var(--table-odd-row);
+        }
+        
+        table.dataframe tbody tr:nth-of-type(even) {
+            background-color: var(--table-even-row);
+        }
+        
+        table.dataframe tbody tr:hover {
+            background-color: var(--hover-row);
+        }
+        
+        table.dataframe td {
+            padding: 10px 6px; 
+            border-top: 1px solid var(--border-color);
+            color: var(--text-color);
+        }
+        
+        @media (max-width: 767px) {
+            .table-responsive {
+                overflow-x: auto;
+                -webkit-overflow-scrolling: touch;
+            }
+            
+            table.dataframe {
+                font-size: 0.8rem;
+                width: auto;
+                min-width: 100%;
+            }
+            
+            table.dataframe th, 
+            table.dataframe td {
+                padding: 8px 4px;
+                min-width: 70px;
+            }
+            
+            table.dataframe th:first-child,
+            table.dataframe td:first-child {
+                min-width: 100px;
+            }
+            
+            table.dataframe th {
+                font-size: 0.9rem;
+                padding: 10px 4px;
+            }
+            
+            .filter-item {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+            
+            .filter-item-label {
+                margin-bottom: 5px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Navbar -->
+    <nav class="navbar navbar-expand-lg navbar-dark">
+        <div class="container">
+            <a class="navbar-brand" href="/">
+                <i class="fas fa-basketball me-2"></i>
+                HooperImpact (v{{ version }})
+            </a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav ms-auto">
+                    <li class="nav-item">
+                        <a class="nav-link" href="https://hooper-labs.com"><i class="fas fa-flask me-1"></i> HooperLabs</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="https://github.com/jclimix/hooperImpact" target="_blank"><i
+                                class="fab fa-github me-1"></i>
+                            GitHub</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link"
+                            href="https://docs.google.com/document/d/1f_Hw4krJIkG2fBnnDMl84XWB1DXCOU_yXmRdkorPqu4/edit?usp=sharing"
+                            target="_blank"><i class="fas fa-info-circle me-1"></i> About</a>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </nav>
+
+    <div class="content-container">
+        <div class="text-center mb-4 mt-4">
+            <img src="{{ url_for('static', filename='images/logo.png') }}" alt="HooperImpact Logo" class="img-fluid"
+                style="max-height: 320px;">
+        </div>
+        
+        <div class="container">
+        <h1 class="text-center">
+            <i class="fas fa-chart-line filter-icon"></i>Player Impact Results
+        </h1>
+        
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0"><i class="fas fa-filter filter-icon"></i>Applied Filters</h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="filter-item">
+                            <span class="filter-item-label"><i class="fas fa-calendar-alt filter-icon"></i>Season:</span>
+                            <span>{{ season }}</span>
+                        </div>
+                        <div class="filter-item">
+                            <span class="filter-item-label"><i class="fas fa-baby filter-icon"></i>Min Age:</span>
+                            <span>{{ filters.min_age }}</span>
+                        </div>
+                        <div class="filter-item">
+                            <span class="filter-item-label"><i class="fas fa-user filter-icon"></i>Max Age:</span>
+                            <span>{{ filters.max_age }}</span>
+                        </div>
+                        <div class="filter-item">
+                            <span class="filter-item-label"><i class="fas fa-running filter-icon"></i>Position:</span>
+                            <span>{{ filters.position }}</span>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="filter-item">
+                            <span class="filter-item-label"><i class="fas fa-gamepad filter-icon"></i>Min Games:</span>
+                            <span>{{ filters.min_games }}</span>
+                        </div>
+                        <div class="filter-item">
+                            <span class="filter-item-label"><i class="fas fa-stopwatch filter-icon"></i>Min Minutes:</span>
+                            <span>{{ filters.min_minutes }}</span>
+                        </div>
+                        <div class="filter-item">
+                            <span class="filter-item-label"><i class="fas fa-sort-amount-down filter-icon"></i>Metric:</span>
+                            <span>{{ filters.metric }}</span>
+                        </div>
+                        <div class="filter-item">
+                            <span class="filter-item-label"><i class="fas fa-greater-than filter-icon"></i>Min Value:</span>
+                            <span>{{ filters.min_metric }}</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="text-center mb-4">
+            <a href="{{ url_for('index') }}" class="btn btn-primary">
+                <i class="fas fa-arrow-left"></i> Back to Filter
+            </a>
+        </div>
+        
+        <div class="card glossary-card">
+            <div class="card-header">
+                <h5 class="mb-0">
+                    <i class="fas fa-book filter-icon"></i>Impact Glossary
+                    <button type="button" class="toggle-button" id="glossaryToggle">
+                        Show Metrics <i class="fas fa-chevron-down toggle-icon"></i>
+                    </button>
+                </h5>
+            </div>
+            <div class="card-body glossary-content" id="glossaryContent">
+                <div class="glossary-item">
+                    <span class="metric-name">Reg. Season PCP (%)</span>
+                    <p class="metric-description">Player Contribution Percentage during the Regular Season. This metric measures the percentage of a team's success that can be attributed to a specific player's performance in regular season games.</p>
+                </div>
+                <div class="glossary-item">
+                    <span class="metric-name">Postseason PCP (%)</span>
+                    <p class="metric-description">Player Contribution Percentage during the Postseason. Similar to Regular Season PCP, but focuses on playoff games where performance often has higher stakes and greater impact on championship outcomes.</p>
+                </div>
+                <div class="glossary-item">
+                    <span class="metric-name">Team Postseason Score (TPS)</span>
+                    <p class="metric-description">A measure of the team's overall success in the postseason. Higher values indicate deeper playoff runs and greater team achievement.</p>
+                </div>
+                <div class="glossary-item">
+                    <span class="metric-name">Reg. Season PIM</span>
+                    <p class="metric-description">Player Impact Metric for the Regular Season. A comprehensive metric that quantifies a player's overall impact on their team's performance during the regular season.</p>
+                </div>
+                <div class="glossary-item">
+                    <span class="metric-name">Postseason PIM</span>
+                    <p class="metric-description">Player Impact Metric for the Postseason. Measures a player's comprehensive impact during playoff games, accounting for the increased importance and difficulty of postseason competition.</p>
+                </div>
+            </div>
+        </div>
+        
+        <div class="table-responsive">
+            {{ table|safe }}
+        </div>
+        
+        <div class="text-center mt-4">
+            <a href="{{ url_for('index') }}" class="btn btn-primary">
+                <i class="fas fa-arrow-left"></i> Back to Filter
+            </a>
+        </div>
+    </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // Add classes to the generated DataFrame table and implement sorting
+        document.addEventListener('DOMContentLoaded', function() {
+            const dataframe = document.querySelector('table.dataframe');
+            if (dataframe) {
+                dataframe.classList.add('table', 'table-striped', 'table-hover');
+                
+                // Make sure all text in the table is white
+                const allCells = dataframe.querySelectorAll('td, th');
+                allCells.forEach(cell => {
+                    cell.style.color = 'white';
+                });
+                
+                // Add sorting functionality to table headers
+                const headers = dataframe.querySelectorAll('th');
+                headers.forEach((header, index) => {
+                    // Add sort icons to headers
+                    header.style.position = 'relative';
+                    
+                    // Keep track of current sort state
+                    header.setAttribute('data-sort-direction', 'none');
+                    
+                    // Add click event to headers for sorting
+                    header.addEventListener('click', function() {
+                        const table = header.closest('table');
+                        const tbody = table.querySelector('tbody');
+                        const rows = Array.from(tbody.querySelectorAll('tr'));
+                        
+                        // Get current sort direction
+                        const currentDirection = this.getAttribute('data-sort-direction');
+                        let isAscending = true;
+                        
+                        // Toggle sort direction
+                        if (currentDirection === 'none' || currentDirection === 'desc') {
+                            isAscending = true;
+                            this.setAttribute('data-sort-direction', 'asc');
+                        } else {
+                            isAscending = false;
+                            this.setAttribute('data-sort-direction', 'desc');
+                        }
+                        
+                        // Remove sort classes from all headers
+                        headers.forEach(h => {
+                            h.classList.remove('sort-asc', 'sort-desc');
+                            if (h !== this) {
+                                h.setAttribute('data-sort-direction', 'none');
+                            }
+                        });
+                        
+                        // Add appropriate sort class
+                        if (isAscending) {
+                            this.classList.add('sort-asc');
+                        } else {
+                            this.classList.add('sort-desc');
+                        }
+                        
+                        // Sort rows
+                        rows.sort((a, b) => {
+                            const cellA = a.querySelectorAll('td')[index].textContent.trim();
+                            const cellB = b.querySelectorAll('td')[index].textContent.trim();
+                            
+                            // Check if the content is a number (including percentages)
+                            const numA = parseFloat(cellA.replace('%', ''));
+                            const numB = parseFloat(cellB.replace('%', ''));
+                            
+                            if (!isNaN(numA) && !isNaN(numB)) {
+                                return isAscending ? numA - numB : numB - numA;
+                            } else {
+                                return isAscending ? 
+                                    cellA.localeCompare(cellB) : 
+                                    cellB.localeCompare(cellA);
+                            }
+                        });
+                        
+                        // Append sorted rows
+                        rows.forEach(row => tbody.appendChild(row));
+                    });
+                });
+            }
+            
+            // Glossary toggle functionality
+            const glossaryToggle = document.getElementById('glossaryToggle');
+            const glossaryContent = document.getElementById('glossaryContent');
+            const toggleIcon = glossaryToggle.querySelector('.toggle-icon');
+            
+            glossaryToggle.addEventListener('click', function() {
+                if (glossaryContent.style.display === 'block') {
+                    glossaryContent.style.display = 'none';
+                    glossaryToggle.innerHTML = 'Show Metrics <i class="fas fa-chevron-down toggle-icon"></i>';
+                } else {
+                    glossaryContent.style.display = 'block';
+                    glossaryToggle.innerHTML = 'Hide Metrics <i class="fas fa-chevron-up toggle-icon"></i>';
+                }
+            });
+        });
+    </script>
+</body>
+</html>
